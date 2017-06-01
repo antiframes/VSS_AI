@@ -41,7 +41,6 @@ bool carryon=false;
 Environment *env;
 
 
-void * timer (void * args);
 
 float distTo(int x1,int x2,int y1,int y2){
     return sqrt(pow(x1-x2,2) + pow(y1-y2,2));
@@ -53,9 +52,13 @@ double dest[3][2];
 double standOrigin[3][2];
 
 bool mustChangeDestination(double x, double y, double destX, double destY);
+void sendVector(bool change1,bool change2,bool change3, base *cp);
+int team=1;
 void chooseNextPoint(int directionId, int i);
+
+
 int main(int argc, char **argv) {
-double duration;
+    double duration;
     env = new Environment();
     Ai *ai=new Ai();
 
@@ -100,12 +103,10 @@ double duration;
     if (arg2==2)
         leftTeam=true;
     ai->leftTeam=leftTeam;
+    team = arg2;
 
     cp->set_hostname(argv[1]);
     cp->conct();
-
-    //thread do timer
-    pthread_create(&thr, NULL, timer, (void *) env);
 
     for (int i=0;i<N_JOGADORES_POR_TIME;i++){
 
@@ -149,6 +150,8 @@ double duration;
 
     //int *directions = ai->receiveAction(env);
 
+    bool change[3]={false,false,false};
+
         for (int i=0;i<3;i++){
             if (mustChangeDestination(env->home[i].pos.x,env->home[i].pos.y,dest[i][0],dest[i][1])){
                 if(isStanding[i]){
@@ -157,15 +160,27 @@ double duration;
                     dest[i][1]=standOrigin[i][1];
                 }
                 else{
-                ai->insertIntoBuffer(curEnvironment,i);
-                int nextAction  = ai->chooseDirection(env,i);
-                chooseNextPoint(nextAction,i);
+                    change[i]=true;
+                    ai->insertIntoBuffer(curEnvironment,i);
+                    int nextAction  = ai->chooseDirection(env,i);
+                    chooseNextPoint(nextAction,i);
+                    ai->sendToServer(team,i,nextAction,env);
 
-                ai->getRewards(i);
+                    ai->getRewards(i);
                 }
             }
         }
+    
+    
+        if(env->currentBall.pos.x>91){
+            printf("GOL DO 1\n");
 
+            ai->sendGoalToServer(1,arg2,env);
+        }
+        if(env->currentBall.pos.x<9){
+            printf("GOL DO 2\n");
+            ai->sendGoalToServer(2,arg2,env);
+        }
 
     //conduzir robôs ao ponto
     for (int i=0;i<N_JOGADORES_POR_TIME;i++){
@@ -173,7 +188,11 @@ double duration;
 	    cp->set_vel(i, cp->fira_to_uspds_vel(env->home[i].velocityLeft), cp->fira_to_uspds_vel(env->home[i].velocityRight));
     }
 
-	cp->snd();
+
+
+	//cp->snd(change[0],change[1],change[2]);
+    //sendVector(change[0],change[1],change[2],cp);
+    cp->snd();
     }
     pthread_join(thr,NULL);
 
@@ -263,19 +282,32 @@ bool mustChangeDestination(double x, double y, double destX, double destY){
         ;
 }
 
-void * timer (void * args){
-    Environment *environment = (Environment *) args;
-
-    auto t1 = Clock::now();
-    while (1){
-        auto t2 = Clock::now();
-
-    timespent=std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-
-    if (timespent>=500){
-        carryon=true;
-      t1=t2;
+void sendVector(bool change1,bool change2,bool change3, base *cp){
+    if (!change1 && !change2 && !change3){
+        cp->snd();return;
     }
-    }
-    return NULL;
+    float *data;
+    data = (float *) malloc(sizeof(float) * 17);
+    data[0] = env->home[0].pos.x;
+    data[1] = env->home[0].pos.y;
+    data[2] = env->home[1].pos.x;
+    data[3] = env->home[1].pos.y;
+    data[4] = env->home[2].pos.x;
+    data[5] = env->home[2].pos.y;
+    data[6] = env->opponent[0].pos.x;
+    data[7] = env->opponent[0].pos.y;
+    data[8] = env->opponent[1].pos.x;
+    data[9] = env->opponent[1].pos.y;
+    data[10] = env->opponent[2].pos.x;
+    data[11] = env->opponent[2].pos.y;
+    data[12] = env->currentBall.pos.x;
+    data[13] = env->currentBall.pos.y;
+    data[14] = 0;
+    if(change1) data[14]=1;
+    data[15] = 0;
+    if(change2) data[15]=1;
+    data[16] = 0;
+    if(change3) data[16]=1;
+
+    cp->snd(data);
 }

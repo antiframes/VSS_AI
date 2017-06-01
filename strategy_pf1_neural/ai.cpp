@@ -2,6 +2,11 @@
 #include "strategy.h"
 #include <math.h>
 #include <iostream>
+#include <curl/curl.h>
+
+#include <cstring>
+#include <string>
+
 #define BUFFERSIZE 10
 #define ACTIONSIZE 4
 
@@ -366,4 +371,140 @@ void Ai::getRewardGk(){//RECOMPENSA DO GOLEIRO
         first.opponent[0].pos.x,first.opponent[0].pos.y,first.opponent[1].pos.x,first.opponent[1].pos.y,first.opponent[2].pos.x,first.opponent[2].pos.y,
         first.currentBall.pos.x,first.currentBall.pos.y,actionBufferGk[firstIndex],totalReward);
 
+}
+
+
+
+struct weightstring {
+    char *ptr;
+    size_t len;
+    };
+    
+    void initstring(struct weightstring *s) {
+        s->len = 0;
+        s->ptr = (char *) malloc(s->len+1);
+        if (s->ptr == NULL) {
+            fprintf(stderr, "malloc() failed\n");
+            exit(EXIT_FAILURE);
+        }
+        s->ptr[0] = '\0';
+        }
+
+    size_t wrtfunc(void *ptr, size_t size, size_t nmemb, struct weightstring *s)
+        {
+        size_t new_len = s->len + size*nmemb;
+        s->ptr = (char *) realloc(s->ptr, new_len+1);
+        if (s->ptr == NULL) {
+            fprintf(stderr, "realloc() failed\n");
+            exit(EXIT_FAILURE);
+        }
+        std::memcpy(s->ptr+s->len, ptr, size*nmemb);
+        s->ptr[new_len] = '\0';
+        s->len = new_len;
+
+        return size*nmemb;
+    }
+
+
+std::string makeString(int team,int change,int action, Environment * env){
+        std::string s = "http://localhost:7777/send1?team=";
+        s=s+std::to_string(team);
+        s = s+"&l1x=";
+        s = s+std::to_string(env->home[0].pos.x);
+        s = s+"&l1y=";
+        s = s+std::to_string(env->home[0].pos.y);
+        s = s+"&l2x=";
+        s = s+std::to_string(env->home[1].pos.x);
+        s = s+"&l2y=";
+        s = s+std::to_string(env->home[1].pos.y);
+        s = s+"&l3x=";
+        s = s+std::to_string(env->home[2].pos.x);
+        s = s+"&l3y=";
+        s = s+std::to_string(env->home[2].pos.y);
+        s = s+"&r1x=";
+        s = s+std::to_string(env->opponent[0].pos.x);
+        s = s+"&r1y=";
+        s = s+std::to_string(env->opponent[0].pos.y);
+        s = s+"&r2x=";
+        s = s+std::to_string(env->opponent[1].pos.x);
+        s = s+"&r2y=";
+        s = s+std::to_string(env->opponent[1].pos.y);
+        s = s+"&r3x=";
+        s = s+std::to_string(env->opponent[2].pos.x);
+        s = s+"&r3y=";
+        s = s+std::to_string(env->opponent[2].pos.y);
+        s = s+"&ballx=";
+        s = s+std::to_string(env->currentBall.pos.x);
+        s = s+"&bally=";
+        s = s+std::to_string(env->currentBall.pos.y);
+        s = s+"&change=";
+        s = s+std::to_string(change);
+        s = s+"&action=";
+        s = s+std::to_string(action);
+
+        return s;
+    }
+
+std::string makeGoalString(int team,int myteam, Environment * env){
+    std::string s = "http://localhost:7777/goal?team=";
+    s=s+std::to_string(team);
+    s = s+"&myteam=";
+    s = s+std::to_string(myteam);
+    s = s+"&l1x=";
+        s = s+std::to_string(env->home[0].pos.x);
+        s = s+"&l1y=";
+        s = s+std::to_string(env->home[0].pos.y);
+        s = s+"&l2x=";
+        s = s+std::to_string(env->home[1].pos.x);
+        s = s+"&l2y=";
+        s = s+std::to_string(env->home[1].pos.y);
+        s = s+"&l3x=";
+        s = s+std::to_string(env->home[2].pos.x);
+        s = s+"&l3y=";
+        s = s+std::to_string(env->home[2].pos.y);
+        s = s+"&r1x=";
+        s = s+std::to_string(env->opponent[0].pos.x);
+        s = s+"&r1y=";
+        s = s+std::to_string(env->opponent[0].pos.y);
+        s = s+"&r2x=";
+        s = s+std::to_string(env->opponent[1].pos.x);
+        s = s+"&r2y=";
+        s = s+std::to_string(env->opponent[1].pos.y);
+        s = s+"&r3x=";
+        s = s+std::to_string(env->opponent[2].pos.x);
+        s = s+"&r3y=";
+        s = s+std::to_string(env->opponent[2].pos.y);
+        s = s+"&ballx=";
+        s = s+std::to_string(env->currentBall.pos.x);
+        s = s+"&bally=";
+        s = s+std::to_string(env->currentBall.pos.y);
+    return s;
+}
+
+    
+void Ai::sendToServer(int team,int change,int action, Environment * env){
+    CURL *curl;
+    CURLcode res;
+    curl = curl_easy_init();
+    curl_easy_setopt(curl, CURLOPT_URL, makeString(team,change,action,env).c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, wrtfunc);
+    struct weightstring ans;
+    initstring(&ans);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &ans);
+    res = curl_easy_perform(curl);
+}
+
+void Ai::sendGoalToServer(int team,int myteam, Environment * env){
+    CURL *curl2;
+    CURLcode res2;
+    curl2 = curl_easy_init();
+    curl_easy_setopt(curl2, CURLOPT_URL, makeGoalString(team,myteam,env).c_str());
+    curl_easy_setopt(curl2, CURLOPT_WRITEFUNCTION, wrtfunc);
+    struct weightstring ans2;
+    initstring(&ans2);
+    curl_easy_setopt(curl2, CURLOPT_WRITEDATA, &ans2);
+    res2 = curl_easy_perform(curl2);
+
+
+    std::cout<<"GOOOOOOL "<<ans2.ptr<<"\n";
 }

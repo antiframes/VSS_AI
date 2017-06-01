@@ -1,6 +1,8 @@
 #include "strategy.h"
 #include "Mediator.h"
 #include <vector>
+#include <cstring>
+#include <string>
 class Ai{
  public:
      int* receiveAction(Environment *env);
@@ -11,6 +13,8 @@ class Ai{
     void getRewards(int i);
     bool leftTeam;
     int chooseDirection(Environment *env, int i);
+    void sendToServer(int team,int change,int action, Environment * env);
+    void sendGoalToServer(int team, int myteam, Environment * env);
 protected:
     std::vector<Environment> envBufferAtk;
     std::vector<Environment> envBufferDef;

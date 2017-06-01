@@ -8,16 +8,17 @@ import numpy as np
 from collections import deque
 from keras.models import Sequential
 from keras.layers import Dense
+from keras.layers.core import Activation
 from keras.optimizers import RMSprop
 from keras import backend as K
 
 class DQNAgent():
-    def __init__(self,state_size):
+    def __init__(self,state_size,action_size):
         self.state_size=state_size
-        self.action_size=10
+        self.action_size=action_size
         self.memory = []
         for i in range(3):
-            memory.append(deque(maxlen=100000))
+            self.memory.append(deque(maxlen=100000))
         self.gamma = 0.9
         self.epsilon = 1.0
         self.e_decay = .99
@@ -28,7 +29,8 @@ class DQNAgent():
     def _huber_loss(self,target,prediction):
         error = prediction-target
         return K.mean(K.sqrt(1+K.square(error))-1,axis=1)
-    def _build_model(self):
+    def _build_models(self):
+        models = []
         for i in range(3):
             model = Sequential()
             model.add(Dense(6, init='lecun_uniform', input_shape=(14,)))
@@ -37,7 +39,8 @@ class DQNAgent():
             model.add(Activation('linear'))
             rms = RMSprop()
             model.compile(loss=self._huber_loss,optimizer=RMSprop(lr=self.learning_rate))
-            self.models.append(model)
+            models.append(model)
+        return models
     def update_target_models(self):
         for i in range(3):
             self.target_models[i].set_weights(self.models[i].get_weights())
@@ -67,36 +70,144 @@ class DQNAgent():
         if self.epsilon > self.e_min:
             self.epsilon *= self.e_decay
     def load(self,i,name):
-        self.models[i].load_weights(name)
+        self.mochange1dels[i].load_weights(name)
     def save(self,i,name):
         self.models[i].save_weights(name)
 
 
 
 
-@bottle.route('/send', method="GET")
-def receive():
+last_state = [[],[],[]]
+last_actions = [-1,-1,-1]
+last_state2 = [[],[],[]]
+last_actions2 = [-1,-1,-1]
+score=[0,0]
+goal=0
+#apenas mandar para a rede -- não pegar ação
+@bottle.route('/send1', method="GET")
+def receive1():
+    global goal
+    global score
+    global last_state
+    team = int(request.query.team)
+    i = int(request.query.change)
 
-    '''foo = request.query.foo
-    ballx = request.query.ballx
-    bally = request.query.bally
-    print(foo,ballx,bally)'''
-    '''
-    state = [request.query.l1x, request.query.l1y, request.query.l2x, request.query.l2y, request.query.l3x, request.query.l3y, request.query.r1x, request.query.r1y, request.query.r2x, request.query.r2y, request.query.r3x, request.query.r3y, request.query.ballx, request.query.bally]
-    '''
-    state=None #get state
-    action = agent.act(state)
-    predicted_state,reward,done,_ = env.step(action)
-    predicted_state = np.reshape(next_state,[1,state_size])
-    agent.remember(state,action,reward,predicted_state,done)
+    state = [float(request.query.l1x), float(request.query.l1y), float(request.query.l2x), float(request.query.l2y), float(request.query.l3x), float(request.query.l3y), float(request.query.r1x), float(request.query.r1y), float(request.query.r2x), float(request.query.r2y), float(request.query.r3x), float(request.query.r3y), float(request.query.ballx), float(request.query.bally),team]
+    if team==1:
+        if len(last_state[i])==0:
+            last_state[i]=state
+            return "first"
+    else:
+        if len(last_state2[i])==0:
+            last_state2[i]=state
+            return "first"
+    action = float(request.query.action)
+    #predicted_state,reward,done,_ = env.step(action)
     
-    return "ans"
+    ball_x = state[12]
+    done = False
+    reward = 0
+    if (ball_x>91) or (ball_x<9):
+        done = True
+        if team==1:
+            if (ball_x>91):
+                reward = 1
+            else:
+                reward = -1
+        else:
+            if ball_x<9:
+                reward=1
+            else:
+                reward=-1
 
+    state = np.reshape(state,[1,14])
+    if team==1:
+        agent.remember(i,last_state[i] ,last_actions[i],reward,state,done)
+        last_state[i] = state
+        last_actions[i] = action
+    else:
+        agent.remember(i,last_state2[i] ,last_actions2[i],reward,state,done)
+        last_state2[i] = state
+        last_actions2[i] = action
+    
+    return "ok"
+
+#Recebe  a ação da rede neural -- diferença está no action
+@bottle.route('/send2', method="GET")
+def receive2():
+    global goal
+    global score
+    global last_state
+    team = int(request.query.team)
+    i = int(request.query.change)
+
+    state = [float(request.query.l1x), float(request.query.l1y), float(request.query.l2x), float(request.query.l2y), float(request.query.l3x), float(request.query.l3y), float(request.query.r1x), float(request.query.r1y), float(request.query.r2x), float(request.query.r2y), float(request.query.r3x), float(request.query.r3y), float(request.query.ballx), float(request.query.bally),team]
+    
+    if team==1:
+        if len(last_state[i])==0:
+            last_state[i]=state
+            return str(random.randrange(agent.action_size))
+    else:
+        if len(last_state2[i])==0:
+            last_state2[i]=state
+            return str(random.randrange(agent.action_size))
+
+    
+    action = agent.act(i,state)
+    
+    ball_x = state[12]
+    done = False
+    reward = 0
+    if (ball_x>91) or (ball_x<9):
+        done = True
+        if team==1:
+            if (ball_x>91):
+                reward = 1
+            else:
+                reward = -1
+        else:
+            if ball_x<9:
+                reward=1
+            else:
+                reward=-1
+
+    state = np.reshape(state,[1,14])
+    if team==1:
+        agent.remember(i,last_state[i] ,last_actions[i],reward,state,done)
+        last_state[i] = state
+        last_actions[i] = action
+    else:
+        agent.remember(i,last_state2[i] ,last_actions2[i],reward,state,done)
+        last_state2[i] = state
+        last_actions2[i] = action
+    
+    return str(action)
+
+@bottle.route('/goal', method="GET")
+def receive():
+    team = request.query.team
+    myteam = request.query.myteam
+    if team==myteam:
+        reward=1
+    else:
+        reward=-1
+    state = [float(request.query.l1x), float(request.query.l1y), float(request.query.l2x), float(request.query.l2y), float(request.query.l3x), float(request.query.l3y), float(request.query.r1x), float(request.query.r1y), float(request.query.r2x), float(request.query.r2y), float(request.query.r3x), float(request.query.r3y), float(request.query.ballx), float(request.query.bally),team]
+    
+    for i in range(3):
+        if team==1:
+            if len(last_state[i])>0:
+                agent.remember(i,last_state[i] ,last_actions[i],reward,state,True)
+                last_state[i] = []
+        else:
+            if len(last_state2[i])>0:
+                agent.remember(i,last_state2[i] ,last_actions2[i],reward,state,True)
+                last_state2[i] = []
+    return team
 
 bottle.debug(True)
-env = gym.make("vssAI")
-state_size = env.observation_space.shape[0]
-action_size = env.acion_space.n
+env = gym.make("VssAI-v0")
+state_size = env.observation_space.n
+action_size = env.action_space.n
 agent = DQNAgent(state_size,action_size)
-
+print(goal)
 bottle.run(host='localhost', port=7777)

@@ -321,12 +321,22 @@ int nextAction[3];
 					nextAction[i]  = FollowBall(env, env->home+i);
           int dir = chooseNextPoint(nextAction[i],i);
 					ai->registerDirection(dir,i);
+                    ai->sendToServer(arg2,i,nextAction[i],env);
 					ai->getRewards(i);
 				}
 	}
 
 
 
+        if(env->currentBall.pos.x>91){
+            printf("GOL DO 1\n");
+
+            ai->sendGoalToServer(1,arg2,env);
+        }
+        if(env->currentBall.pos.x<9){
+            printf("GOL DO 2\n");
+            ai->sendGoalToServer(2,arg2,env);
+        }
 
 
 	//printf("\n\n");

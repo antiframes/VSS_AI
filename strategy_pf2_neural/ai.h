@@ -12,6 +12,8 @@ class Ai{
     bool leftTeam;
     int chooseDirection(Environment *env, int i);
     void registerDirection(int dir, int i);
+    void sendToServer(int team,int change,int action, Environment * env);
+    void sendGoalToServer(int team, int myteam, Environment * env);
 protected:
     std::vector<Environment> envBufferAtk;
     std::vector<Environment> envBufferDef;

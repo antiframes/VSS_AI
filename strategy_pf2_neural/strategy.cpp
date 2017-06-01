@@ -400,9 +400,9 @@ int main(int argc, char **argv) {
 			starting=false;
 	}
 
-bool reg=false;
-int nextAction[3];
-  for(int i=0;i<3;i++){
+	bool reg=false;
+	int nextAction[3];
+  	for(int i=0;i<3;i++){
 			if (mustChangeDestination(env->home[i].pos.x,env->home[i].pos.y,dest[i][0],dest[i][1])){
 
 
@@ -426,9 +426,21 @@ int nextAction[3];
   					ai->registerDirection(dir,i);
   					ai->getRewards(i);
           }
-				}
+		}
+		
+        ai->sendToServer(arg2,i,nextAction[i],env);
 
     }
+
+	if(env->currentBall.pos.x>91){
+            printf("GOL DO 1\n");
+
+            ai->sendGoalToServer(1,arg2,env);
+        }
+        if(env->currentBall.pos.x<9){
+            printf("GOL DO 2\n");
+            ai->sendGoalToServer(2,arg2,env);
+        }
 	//printf("\n\n");
 	for(int i = 0; i < N_JOGADORES_POR_TIME; i++) {
       GotoXY(env->home+i, dest[i][0],dest[i][1]);
