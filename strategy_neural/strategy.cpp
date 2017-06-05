@@ -126,7 +126,7 @@ double duration;
 	cp->rcv();
 
     env->lastBall.pos.x = env->currentBall.pos.x;
-    env->lastBall.pos.y = env->currentBall.pos.y;
+    env->lastBall.pos.y = env->currentBall.pos.y;  
     //printf("========= begin\n");
     env->currentBall.pos.x = cp->uspds_to_fira_x(cp->get_bx());
     env->currentBall.pos.y = cp->uspds_to_fira_y(cp->get_by());
@@ -158,11 +158,20 @@ double duration;
                 }
                 else{
                 ai->insertIntoBuffer(curEnvironment,i);
-                int nextAction  = ai->chooseDirection(env,i);
+                //int nextAction  = ai->chooseDirection(env,i);
+                int nextAction = ai->sendToServer(arg2,i,env);
                 chooseNextPoint(nextAction,i);
                 ai->getRewards(i);
                 }
             }
+        }
+
+    
+	if(env->currentBall.pos.x>91){
+            ai->sendGoalToServer(1,arg2,env);
+        }
+        if(env->currentBall.pos.x<9){
+            ai->sendGoalToServer(2,arg2,env);
         }
 
 

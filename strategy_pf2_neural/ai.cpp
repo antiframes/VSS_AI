@@ -503,6 +503,4 @@ void Ai::sendGoalToServer(int team,int myteam, Environment * env){
     curl_easy_setopt(curl2, CURLOPT_WRITEDATA, &ans2);
     res2 = curl_easy_perform(curl2);
 
-
-    std::cout<<"GOOOOOOL "<<ans2.ptr<<"\n";
 }

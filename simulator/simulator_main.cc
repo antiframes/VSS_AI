@@ -1,6 +1,91 @@
 #include"simulator.h"
 #include"history.h"
 
+
+    #include<iostream>
+    #include <curl/curl.h>
+    #include <cstring>
+
+
+    struct weightstring {
+    char *ptr;
+    size_t len;
+    };
+    
+    void init_string(struct weightstring *s) {
+        s->len = 0;
+        s->ptr = (char *) malloc(s->len+1);
+        if (s->ptr == NULL) {
+            fprintf(stderr, "malloc() failed\n");
+            exit(EXIT_FAILURE);
+        }
+        s->ptr[0] = '\0';
+        }
+
+    size_t writefunc(void *ptr, size_t size, size_t nmemb, struct weightstring *s)
+        {
+        size_t new_len = s->len + size*nmemb;
+        s->ptr = (char *) realloc(s->ptr, new_len+1);
+        if (s->ptr == NULL) {
+            fprintf(stderr, "realloc() failed\n");
+            exit(EXIT_FAILURE);
+        }
+        std::memcpy(s->ptr+s->len, ptr, size*nmemb);
+        s->ptr[new_len] = '\0';
+        s->len = new_len;
+
+        return size*nmemb;
+    }
+
+string makeEndString(){
+        string s = "http://localhost:7777/end";
+        return s;
+}
+    string makeString(simulator *sim,int team,float * state){
+        string s = "http://localhost:7777/send?team=";
+        if (team==1)
+            s=s+"1";
+        else s=s+"2";
+        s = s+"&l1x=";
+        s = s+to_string(state[6]);
+        s = s+"&l1y=";
+        s = s+to_string(state[7]);
+        s = s+"&l2x=";
+        s = s+to_string(state[8]);
+        s = s+"&l2y=";
+        s = s+to_string(state[9]);
+        s = s+"&l3x=";
+        s = s+to_string(state[10]);
+        s = s+"&l3y=";
+        s = s+to_string(state[11]);
+        s = s+"&r1x=";
+        s = s+to_string(state[12]);
+        s = s+"&r1y=";
+        s = s+to_string(state[13]);
+        s = s+"&r2x=";
+        s = s+to_string(state[14]);
+        s = s+"&r2y=";
+        s = s+to_string(state[15]);
+        s = s+"&r3x=";
+        s = s+to_string(state[16]);
+        s = s+"&r3y=";
+        s = s+to_string(state[17]);
+        s = s+"&ballx=";
+        s = s+to_string(state[18]);
+        s = s+"&bally=";
+        s = s+to_string(state[19]);
+        s = s+"&change1=";
+        s = s+to_string(state[20]);
+        s = s+"&change2=";
+        s = s+to_string(state[21]);
+        s = s+"&change3=";
+        s = s+to_string(state[22]);
+        s = s+"&goal=";
+        s = s+to_string(sim->gol(sim->b, sim->c));
+
+        return s;
+    }
+
 int counter = 1;
 int pronto = 0;
 bool fim_jogo = false;
@@ -143,7 +228,7 @@ void *executar_movimento(void *a) {
 	if(gol_marked == 1) hist->inc_n_scored_goals();
 	else if(gol_marked == 2) hist->inc_n_other_team_goals();
         sim->handle_gol(gol_marked);
-    
+
         
 	pthread_mutex_unlock(&mutex_control);
         counter++;
@@ -154,6 +239,17 @@ void *executar_movimento(void *a) {
 		fprintf(fd_game, "%d %d %d\n", counter / ((int)(1 / TEMPO_POR_QUADRO)), sim->t1_get_score(), sim->t2_get_score());
 	}
     }
+      
+    CURL *curl;
+    CURLcode res;
+    curl = curl_easy_init();
+    curl_easy_setopt(curl, CURLOPT_URL, makeEndString().c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefunc);
+    struct weightstring ans;
+    init_string(&ans);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &ans);
+    res = curl_easy_perform(curl);
+                    
 
     pthread_exit(NULL);
 }
@@ -164,7 +260,7 @@ void *estrategia_1_send(void * a) {
     struct sockaddr_in clientAddress;
     int novo_id, aux;
     int on = 1;
-    socklen_t clientAddressLength;
+    socklen_t clientAddressLength;    
     
     //cria socket.
     listenSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -254,8 +350,10 @@ void *estrategia_1_recv(void *a) {
     struct sockaddr_in serverAddress;
     float ve[N_JOGADORES_POR_TIME];
     float vd[N_JOGADORES_POR_TIME];
-    int tamanho = (2 * N_JOGADORES_POR_TIME);
+
+    int tamanho = (2 * N_JOGADORES_POR_TIME)+18;
     float *mensagem = (float *) new float[tamanho];
+    float state[17];
     int on = 1;
 
 
@@ -295,9 +393,31 @@ void *estrategia_1_recv(void *a) {
         if(recv(estrategia_1_recv_connectSocket, mensagem, tamanho * sizeof(float), 0) != -1) {
             pthread_mutex_lock(&mutex_control);
             for(int i = 0; i < N_JOGADORES_POR_TIME; i++) {
-                va_e[i] = mensagem[i * 2];
-                va_d[i] = mensagem[(i * 2) + 1];
+                if (mensagem[tamanho-1]==42){
+                    va_e[i] = mensagem[i * 2];
+                    va_d[i] = mensagem[(i * 2) + 1];
+
+                    /*if (mensagem[(N_JOGADORES_POR_TIME*2) + 14 + i] >0){
+                        //mandar pra rede neural            
+                        CURL *curl;
+                        CURLcode res;
+                        curl = curl_easy_init();
+                        curl_easy_setopt(curl, CURLOPT_URL, makeString(sim,1,mensagem).c_str());
+                        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefunc);
+                        struct weightstring ans;
+                        init_string(&ans);
+                        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &ans);
+                        res = curl_easy_perform(curl);
+                    }*/
+                }
+                else{
+                    va_e[i] = mensagem[i * 2];
+                    va_d[i] = mensagem[(i * 2) + 1];
+                }
+
+
             }
+            
             pthread_mutex_unlock(&mutex_control);
         }
 	e1r++;
@@ -407,7 +527,7 @@ void *estrategia_2_recv(void * a) {
     struct sockaddr_in serverAddress;
     float ve[N_JOGADORES_POR_TIME];
     float vd[N_JOGADORES_POR_TIME];
-    int tamanho = (2 * N_JOGADORES_POR_TIME);
+    int tamanho = (2 * N_JOGADORES_POR_TIME) + 18;
     float *mensagem = (float *) new float[tamanho];
     int on = 1;
 
@@ -447,8 +567,29 @@ void *estrategia_2_recv(void * a) {
         if(recv(estrategia_2_recv_connectSocket, mensagem, tamanho * sizeof(float), 0) != -1) {
             pthread_mutex_lock(&mutex_control);
             for(int i = 0; i < N_JOGADORES_POR_TIME; i++) {
+                if (mensagem[tamanho-1]==42){
                 vb_e[i] = mensagem[i * 2];
                 vb_d[i] = mensagem[(i * 2) + 1];
+
+/*
+                if  (mensagem[(N_JOGADORES_POR_TIME*2) + 14 + i] >0){
+                    //mandar pra rede neural
+                    CURL *curl;
+                    CURLcode res;
+                    curl = curl_easy_init();
+                    curl_easy_setopt(curl, CURLOPT_URL, makeString(sim,2,mensagem).c_str());
+                        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefunc);
+                    struct weightstring ans;
+                    init_string(&ans);
+                    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &ans);
+                    res = curl_easy_perform(curl);
+                }*/
+            }
+            else{
+                vb_e[i] = mensagem[i * 2];
+                vb_d[i] = mensagem[(i * 2) + 1];
+            }
+
             }
             pthread_mutex_unlock(&mutex_control);
         }
