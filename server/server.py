@@ -61,22 +61,28 @@ class DQNAgent():
         Y = np.zeros((batch_size,self.action_size))
         for j in range(batch_size):
             state,action,reward,next_state,done = minibatch[j]
-            action=int(action)
-            target = self.models[i].predict(state)[0]#TODO the list of Numpy arrays that you are passing to your model is not the size the model expected
-            if done:
-                target[action] = reward
-            else:
-                a = np.argmax(self.models[i].predict(next_state)[0])
-                t = self.target_models[i].predict(next_state)[0]
-                target[action] = reward + self.gamma * t[a]
-            X[i],Y[i] = state,target
+            if len(state)>0:
+                action=int(action)
+                target = self.models[i].predict(state)[0]
+                if done:
+                    target[action] = reward
+                else:
+                    a = np.argmax(self.models[i].predict(next_state)[0])
+                    t = self.target_models[i].predict(next_state)[0]
+                    target[action] = reward + self.gamma * t[a]
+                X[i],Y[i] = state,target
         self.models[i].fit(X,Y,epochs=1,verbose=0)
+        print(self.models[i].get_weights())
+        print()
+        print()
         if self.epsilon > self.e_min:
             self.epsilon *= self.e_decay
-    def load(self,i,name):
-        self.mochange1dels[i].load_weights(name)
-    def save(self,i,name):
-        self.models[i].save_weights(name)
+    def load(self,name):
+        for i in range(3):
+            self.models[i].load_weights(name)
+    def save(self,name):
+        for i in range(3):
+            self.models[i].save_weights(name)
 
 #apenas mandar para a rede -- não pegar ação
 @bottle.route('/send1', method="GET")
@@ -129,25 +135,29 @@ def receive():
     reward,last_state,last_actions = env.unwrapped.step_goal(team,myteam)
 
     for i in range(3):
-        agent.remember(i,last_state ,last_actions[i],reward,state,True)
+        agent.remember(i,last_state[i] ,last_actions[i],reward,state,True)
     return team
 fbase = firebase.FirebaseApplication('https://verysmallsize-eb3a1.firebaseio.com/', None)
 
 @bottle.route('/end',method="GET")
 def endgame():
     global fbase
+    print("ENDING")
 
+
+    agent.save("weights")
     #salvar no banco de dados
     for i in range(len(agent.models)):
         agent.replay(i,128)
-        model = agent.models[i]
+        #salvar no banco de dados
+        '''model = agent.models[i]
         weights = model.get_weights()
         layer1 = np.transpose(weights[0]).tolist()
         layer2 = np.transpose(weights[2]).tolist()
         for j in range(6):
-            fbase.put("/p"+str(i)+"/layer1",str(j) ,layer1[i])
+            fbase.put("/p"+str(i)+"/layer1",str(j) ,layer1[j])
         for j in range(10):
-            fbase.put("/p"+str(i)+"/layer2",str(j) ,layer2[i])
+            fbase.put("/p"+str(i)+"/layer2",str(j) ,layer2[j])'''
     
 
 
@@ -157,9 +167,24 @@ env.reset()
 state_size = env.observation_space.n
 action_size = env.action_space.n
 agent = DQNAgent(state_size,action_size)
+agent.load("weights")
 
-#pegar do banco de dados
-for i in range(3):
+'''for i in range(3):
+    weights = agent.models[i].get_weights()
+    layer1 = np.transpose(weights[0]).tolist()
+    layer2 = np.transpose(weights[2]).tolist()
+    print(layer1)
+    print()
+    print(layer2)
+    print()
+    print()
+    for j in range(6):
+        fbase.put("/p"+str(i)+"/layer1",str(j) ,layer1[j])
+    for j in range(10):
+        fbase.put("/p"+str(i)+"/layer2",str(j) ,layer2[j])'''
+
+#descomentar para pegar do banco de dados
+'''for i in range(3):
     layer1 = np.transpose(fbase.get("/p"+str(i)+'/layer1',None))
     layer2 = np.transpose(fbase.get("/p"+str(i)+'/layer2',None))
     weights = []
@@ -167,7 +192,7 @@ for i in range(3):
     weights.append(np.zeros(6))
     weights.append(np.array(layer2))
     weights.append(np.zeros(10))
-    agent.models[i].set_weights(np.array(weights))
+    agent.models[i].set_weights(np.array(weights))'''
 
 
 
